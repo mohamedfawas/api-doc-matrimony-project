@@ -8,19 +8,1213 @@
   <div id="swagger-ui"></div>
   <script src="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui-bundle.js"></script>
   <script>
-    const specUrls = [
-      { name: "Auth Service", url: "https://raw.githubusercontent.com/mohamedfawas/api-doc-matrimony-project/main/auth_service.yaml" },
-      { name: "Admin Service", url: "https://raw.githubusercontent.com/mohamedfawas/api-doc-matrimony-project/main/admin_service.yaml" },
-      { name: "User Service", url: "https://raw.githubusercontent.com/mohamedfawas/api-doc-matrimony-project/main/user_service.yaml" }
-    ];
+    // Embedded YAML content (from your question)
+    const adminServiceYAML = `openapi: 3.0.0
+info:
+  title: Muslim Matrimony Admin Service API
+  version: 1.0.0
+  description: API endpoints for admin user management and analytics
 
+servers:
+  - url: http://localhost:8081
+    description: Local development server
+
+paths:
+  /users:
+    get:
+      tags: [User Management]
+      summary: List all users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: 
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema: 
+            type: integer
+            default: 20
+        - name: blocked
+          in: query
+          schema: 
+            type: boolean
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              example:
+                users:
+                  - user_id: "123"
+                    email: "user@example.com"
+                    phone: "+911234567890"
+                    blocked: false
+                    subscription_active: true
+                total: 150
+                page: 1
+                limit: 20
+
+  /users/{user_id}:
+    get:
+      tags: [User Management]
+      summary: Get user details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: 
+            type: string
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              example:
+                user_id: "123"
+                email: "user@example.com"
+                phone: "+911234567890"
+                created_at: "2023-01-15T10:00:00Z"
+                last_login: "2023-07-20T15:30:00Z"
+                blocked: false
+                subscription:
+                  active: true
+                  valid_until: "2024-07-20"
+                profile_completeness: 85%
+
+    patch:
+      tags: [User Management]
+      summary: Block/Unblock user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: 
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [block, unblock]
+              required: [action]
+              example:
+                action: block
+      responses:
+        '200':
+          description: User status updated
+
+  /users/search:
+    get:
+      tags: [User Management]
+      summary: Search users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema: 
+            type: string
+        - name: field
+          in: query
+          schema: 
+            type: string
+            enum: [email, phone, name]
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              example:
+                - user_id: "123"
+                  email: "user@example.com"
+                  name: "John Doe"
+                  phone: "+911234567890"
+
+  /analytics/users:
+    get:
+      tags: [Analytics]
+      summary: User statistics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User analytics
+          content:
+            application/json:
+              example:
+                total_users: 1500
+                active_trials: 300
+                subscribed_users: 1200
+                blocked_users: 15
+                avg_profile_completeness: 78
+                new_users_last_7_days: 45
+
+  /analytics/revenue:
+    get:
+      tags: [Analytics]
+      summary: Revenue statistics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema: 
+            type: string
+            enum: [daily, weekly, monthly]
+            default: monthly
+      responses:
+        '200':
+          description: Revenue data
+          content:
+            application/json:
+              example:
+                total_revenue: 1200000
+                currency: "INR"
+                monthly_breakdown:
+                  - month: "2023-06"
+                    amount: 400000
+                  - month: "2023-07"
+                    amount: 800000
+
+  /analytics/activity:
+    get:
+      tags: [Analytics]
+      summary: User activity
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: metric
+          in: query
+          required: true
+          schema: 
+            type: string
+            enum: [logins, profile_edits, searches, interests]
+        - name: days
+          in: query
+          schema: 
+            type: integer
+            default: 7
+      responses:
+        '200':
+          description: Activity data
+          content:
+            application/json:
+              example:
+                metric: "logins"
+                days: 7
+                data:
+                  - date: "2023-07-15"
+                    count: 150
+                  - date: "2023-07-16"
+                    count: 175
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT`;
+    const authServiceYAML = `openapi: 3.0.0
+info:
+  title: Muslim Matrimonial Authentication API
+  version: 1.0.0
+  description: Authentication service for user registration, login, and password management.
+servers:
+  - url: https://api.yourplatform.com/v1
+    description: Production server
+
+tags:
+  - name: User Authentication
+  - name: Admin Authentication
+  - name: Verification
+
+paths:
+  # ==========================================
+  # User Registration & Verification
+  # ==========================================
+  /auth/register:
+    post:
+      tags: [User Authentication]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationRequest'
+      responses:
+        200:
+          description: OTP sent for verification
+          content:
+            application/json:
+              example: { "message": "OTP sent to phone and email" }
+        400:
+          description: Invalid input
+
+  /auth/verify-phone:
+    post:
+      tags: [Verification]
+      summary: Verify phone number via OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                  example: "+919876543210"
+                otp:
+                  type: string
+                  example: "123456"
+      responses:
+        200:
+          description: Phone verified
+          content:
+            application/json:
+              example: { "message": "Phone verified successfully" }
+        400:
+          description: Invalid OTP
+
+  /auth/resend-phone-otp:
+    post:
+      tags: [Verification]
+      summary: Resend OTP to phone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                  example: "+919876543210"
+      responses:
+        200:
+          description: OTP resent
+          content:
+            application/json:
+              example: { "message": "OTP resent to phone" }
+
+  /auth/verify-email:
+    post:
+      tags: [Verification]
+      summary: Verify email via OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: "user@example.com"
+                otp:
+                  type: string
+                  example: "654321"
+      responses:
+        200:
+          description: Email verified
+          content:
+            application/json:
+              example: { "message": "Email verified successfully" }
+        400:
+          description: Invalid OTP
+
+  /auth/resend-email-otp:
+    post:
+      tags: [Verification]
+      summary: Resend OTP to email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: "user@example.com"
+      responses:
+        200:
+          description: OTP resent
+          content:
+            application/json:
+              example: { "message": "OTP resent to email" }
+
+  # ==========================================
+  # User Login & Password Management
+  # ==========================================
+  /auth/login:
+    post:
+      tags: [User Authentication]
+      summary: User login with phone/email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        200:
+          description: Access/refresh tokens issued
+          content:
+            application/json:
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        401:
+          description: Invalid credentials
+
+  /auth/forgot-password:
+    post:
+      tags: [User Authentication]
+      summary: Initiate password reset (via email/phone)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                identifier:
+                  type: string
+                  example: "user@example.com"
+      responses:
+        200:
+          description: Reset token generated
+          content:
+            application/json:
+              example: { "message": "Reset instructions sent" }
+        404:
+          description: User not found
+
+  /auth/reset-password:
+    post:
+      tags: [User Authentication]
+      summary: Reset password using a token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "reset_token_123"
+                new_password:
+                  type: string
+                  example: "NewSecurePass123!"
+      responses:
+        200:
+          description: Password reset successful
+          content:
+            application/json:
+              example: { "message": "Password updated" }
+        400:
+          description: Invalid token
+
+  /auth/change-password:
+    post:
+      tags: [User Authentication]
+      summary: Change password after login
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                old_password:
+                  type: string
+                  example: "OldPass123!"
+                new_password:
+                  type: string
+                  example: "NewPass123!"
+      responses:
+        200:
+          description: Password changed
+          content:
+            application/json:
+              example: { "message": "Password updated" }
+        401:
+          description: Unauthorized
+
+  # ==========================================
+  # Admin Endpoints
+  # ==========================================
+  /auth/admin/login:
+    post:
+      tags: [Admin Authentication]
+      summary: Admin login with predefined credentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: "admin@example.com"
+                password:
+                  type: string
+                  example: "AdminPass123!"
+      responses:
+        200:
+          description: Admin access token issued
+          content:
+            application/json:
+              example: { "access_token": "admin_jwt_token_here" }
+        401:
+          description: Invalid admin credentials
+
+  /auth/admin/reset-password:
+    post:
+      tags: [Admin Authentication]
+      summary: Admin password reset (similar to user flow)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "admin_reset_token"
+                new_password:
+                  type: string
+                  example: "NewAdminPass123!"
+      responses:
+        200:
+          description: Admin password reset
+          content:
+            application/json:
+              example: { "message": "Admin password updated" }
+
+# ==========================================
+# Data Models
+# ==========================================
+components:
+  schemas:
+    UserRegistrationRequest:
+      type: object
+      properties:
+        create_profile_for:
+          type: string
+          example: "Myself"
+          description: "Myself/Daughter/Son/Brother/Sister/Relative/Friend"
+        bride_groom_name:
+          type: string
+          example: "Ameer"
+        phone:
+          type: string
+          example: "+919876543210"
+        email:
+          type: string
+          example: "ameer@example.com"
+        password:
+          type: string
+          example: "SecurePass123!"
+      required:
+        - create_profile_for
+        - bride_groom_name
+        - phone
+        - email
+        - password
+
+    LoginRequest:
+      type: object
+      properties:
+        identifier:
+          type: string
+          example: "+919876543210"
+        password:
+          type: string
+          example: "SecurePass123!"
+      required:
+        - identifier
+        - password
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT`;
+    const userServiceYAML = `openapi: 3.0.0
+info:
+  title: Muslim Matrimonial User Service API
+  version: 1.0.0
+  description: User profile management, subscription, search, and communication features.
+servers:
+  - url: https://api.yourplatform.com/v1
+    description: Production server
+
+tags:
+  - name: Profile Management
+    description: User profile operations
+  - name: Photos
+    description: Photo management
+  - name: Partner Preferences
+    description: Partner preference settings
+  - name: Subscriptions
+    description: Subscription management
+  - name: Search
+    description: Profile search operations
+  - name: Interests
+    description: Interest management
+  - name: Chat
+    description: Chat operations
+
+paths:
+  /user/profile:
+    get:
+      tags: [Profile Management]
+      summary: Get user profile
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        404:
+          description: Profile not found
+    post:
+      tags: [Profile Management]
+      summary: Submit user details
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+      responses:
+        200:
+          description: Profile updated
+          content:
+            application/json:
+              example: { "message": "Profile saved successfully" }
+        401:
+          description: Unauthorized
+    put:
+      tags: [Profile Management]
+      summary: Update profile details
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+      responses:
+        200:
+          description: Profile updated
+          content:
+            application/json:
+              example: { "message": "Profile updated successfully" }
+    delete:
+      tags: [Profile Management]
+      summary: Deactivate account
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Account deactivated
+          content:
+            application/json:
+              example: { "message": "Account deactivated successfully" }
+
+  /user/photo/profile:
+    get:
+      tags: [Photos]
+      summary: Get profile photo URL
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Profile photo URL
+          content:
+            application/json:
+              example: { "profile_photo_url": "https://s3.amazonaws.com/..." }
+    post:
+      tags: [Photos]
+      summary: Upload profile photo
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        200:
+          description: Photo uploaded
+          content:
+            application/json:
+              example: { "profile_photo_url": "https://s3.amazonaws.com/..." }
+    delete:
+      tags: [Photos]
+      summary: Remove profile photo
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Photo removed
+          content:
+            application/json:
+              example: { "message": "Profile photo removed" }
+
+  /user/photos:
+    get:
+      tags: [Photos]
+      summary: Get all uploaded photos
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of photos
+          content:
+            application/json:
+              example: { "photos": ["url1", "url2"] }
+    post:
+      tags: [Photos]
+      summary: Upload multiple photos (max 3)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  maxItems: 3
+                  description: "Up to 3 photos allowed"
+      responses:
+        200:
+          description: Photos uploaded
+          content:
+            application/json:
+              example: { "photo_urls": ["url1", "url2"] }
+
+  /user/photos/{photo_id}:
+    delete:
+      tags: [Photos]
+      summary: Delete specific photo
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: photo_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Photo deleted
+          content:
+            application/json:
+              example: { "message": "Photo deleted successfully" }
+
+  /user/partner-preferences:
+    get:
+      tags: [Partner Preferences]
+      summary: Get partner preferences
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Preferences retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartnerPreferences'
+    post:
+      tags: [Partner Preferences]
+      summary: Set partner preferences
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartnerPreferences'
+      responses:
+        200:
+          description: Preferences saved
+          content:
+            application/json:
+              example: { "message": "Preferences updated" }
+
+  /user/subscribe:
+    post:
+      tags: [Subscriptions]
+      summary: Initiate Razorpay subscription
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan:
+                  type: string
+                  example: "yearly"
+      responses:
+        200:
+          description: Razorpay order created
+          content:
+            application/json:
+              example: { "order_id": "razorpay_order_123" }
+
+  /user/subscription:
+    get:
+      tags: [Subscriptions]
+      summary: Get current subscription status
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Subscription details
+          content:
+            application/json:
+              example: { "plan": "yearly", "expires_at": "2025-01-01" }
+
+  /user/subscription/webhook:
+    post:
+      tags: [Subscriptions]
+      summary: Handle Razorpay payment webhook
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payment_id:
+                  type: string
+                  example: "pay_123"
+                status:
+                  type: string
+                  example: "success"
+      responses:
+        200:
+          description: Webhook processed
+
+  /user/search:
+    get:
+      tags: [Search]
+      summary: Search profiles based on criteria
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: min_age
+          in: query
+          schema:
+            type: integer
+            example: 25
+        - name: max_age
+          in: query
+          schema:
+            type: integer
+            example: 30
+        - name: min_height
+          in: query
+          schema:
+            type: number
+            example: 5.5
+        - name: max_height
+          in: query
+          schema:
+            type: number
+            example: 6.0
+        - name: marital_status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+            example: ["Never married", "Divorced"]
+        - name: education
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+            example: ["Masters", "Bachelors"]
+        - name: profession
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+            example: ["Software Engineer", "Doctor"]
+        - name: home_district
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+            example: ["Kozhikode", "Trivandrum"]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            example: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            example: 20
+      responses:
+        200:
+          description: Search results
+          content:
+            application/json:
+              example: { "profiles": [] }
+
+  /user/interest:
+    post:
+      tags: [Interests]
+      summary: Send interest to a user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to_user_id:
+                  type: string
+                  example: "user_456"
+      responses:
+        200:
+          description: Interest sent
+          content:
+            application/json:
+              example: { "message": "Interest request sent" }
+
+  /user/interests/received:
+    get:
+      tags: [Interests]
+      summary: Get received interest requests
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of received interests
+          content:
+            application/json:
+              example: { "requests": [] }
+
+  /user/interests/sent:
+    get:
+      tags: [Interests]
+      summary: Get sent interest requests
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of sent interests
+          content:
+            application/json:
+              example: { "sent_requests": [] }
+
+  /user/interest/{request_id}/accept:
+    post:
+      tags: [Interests]
+      summary: Accept an interest request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Request accepted
+          content:
+            application/json:
+              example: { "message": "Interest accepted" }
+
+  /user/interest/{request_id}:
+    delete:
+      tags: [Interests]
+      summary: Withdraw interest request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Interest withdrawn
+          content:
+            application/json:
+              example: { "message": "Interest request withdrawn" }
+
+  /user/chat/{user_id}/messages:
+    get:
+      tags: [Chat]
+      summary: Get chat history with a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            example: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            example: 20
+      responses:
+        200:
+          description: Chat messages
+          content:
+            application/json:
+              example: { "messages": [] }
+    post:
+      tags: [Chat]
+      summary: Send a message
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  example: "Assalamualaikum, would you like to connect?"
+      responses:
+        200:
+          description: Message sent
+          content:
+            application/json:
+              example: { "message_id": "msg_123" }
+
+  /user/chats:
+    get:
+      tags: [Chat]
+      summary: List active chat conversations
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Chat list
+          content:
+            application/json:
+              example: { "conversations": [] }
+
+  /user/chat/messages/{message_id}:
+    delete:
+      tags: [Chat]
+      summary: Delete a message
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: message_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Message deleted
+          content:
+            application/json:
+              example: { "message": "Message deleted successfully" }
+
+components:
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        date_of_birth:
+          type: string
+          format: date
+          example: "1995-05-15"
+        community:
+          type: string
+          enum: ["Sunni", "Shia", "Thabligh", "Mujahid"]
+          example: "Sunni"
+        nationality:
+          type: string
+          example: "Indian"
+        height:
+          type: number
+          example: 5.8
+        weight:
+          type: number
+          example: 70
+        marital_status:
+          type: string
+          enum: ["Never married", "Divorced", "Nikah divorce", "Awaiting divorce", "Widower"]
+          example: "Never married"
+        physically_challenged:
+          type: boolean
+          example: false
+        highest_education:
+          type: string
+          enum: ["Doctorate", "Masters", "Bachelors", "Diploma", "TTC", "ITI", "Islamic Education", "High School", "Higher Secondary", "Less than high school"]
+          example: "Masters"
+        course:
+          type: string
+          example: "MSc Computer Science"
+        profession:
+          type: string
+          example: "Software Engineer"
+        profession_type:
+          type: string
+          enum: ["Student", "Full time", "Part time", "Government", "Private", "Homemaker", "Self Employed", "Retired", "Not employed"]
+          example: "Full time"
+        home_district:
+          type: string
+          example: "Kozhikode"
+        current_location:
+          type: string
+          example: "India"
+        religiousness:
+          type: string
+          enum: ["Very religious", "Moderately religious", "Occasionally religious", "Agnostic", "Secular", "Atheist", "Not religious", "Prefer not to say"]
+          example: "Very religious"
+        financial_status:
+          type: string
+          enum: ["Lower middle class", "Middle class", "Upper middle class", "Wealthy/affluent", "Prefer not to say"]
+          example: "Middle class"
+
+    PartnerPreferences:
+      type: object
+      properties:
+        min_age:
+          type: integer
+          example: 25
+        max_age:
+          type: integer
+          example: 30
+        min_height:
+          type: number
+          example: 5.5
+        max_height:
+          type: number
+          example: 6.0
+        marital_status:
+          type: array
+          items:
+            type: string
+          example: ["Never married", "Divorced"]
+        education:
+          type: array
+          items:
+            type: string
+          example: ["Masters", "Bachelors"]
+        profession:
+          type: array
+          items:
+            type: string
+          example: ["Software Engineer", "Doctor"]
+        home_district:
+          type: array
+          items:
+            type: string
+          example: ["Kozhikode", "Trivandrum"]
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT`;
+
+    // Configure Swagger UI with embedded specs
     SwaggerUIBundle({
       dom_id: '#swagger-ui',
       presets: [SwaggerUIBundle.presets.apis],
       layout: "BaseLayout",
-      deepLinking: true,
-      plugins: [SwaggerUIBundle.plugins.DownloadUrl],
-      urls: specUrls
+      spec: {
+        openapi: "3.0.0",
+        paths: {},
+        tags: [
+          { name: "Auth Service", description: "Authentication APIs" },
+          { name: "Admin Service", description: "Admin Management APIs" },
+          { name: "User Service", description: "User Profile APIs" }
+        ]
+      },
+      plugins: [
+        {
+          statePlugins: {
+            spec: {
+              wrapActions: {
+                updateSpec: (ori) => (spec) => {
+                  if (spec === "") return ori(spec);
+                }
+              }
+            }
+          }
+        }
+      ],
+      "urls.primaryName": "Auth Service",
+      urls: [
+        { name: "Auth Service", url: "data:application/yaml;charset=utf-8," + encodeURIComponent(authServiceYAML) },
+        { name: "Admin Service", url: "data:application/yaml;charset=utf-8," + encodeURIComponent(adminServiceYAML) },
+        { name: "User Service", url: "data:application/yaml;charset=utf-8," + encodeURIComponent(userServiceYAML) }
+      ]
     });
   </script>
 </body>
