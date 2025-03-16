@@ -294,7 +294,7 @@ components:
         create_profile_for:
           type: string
           example: "Myself"
-          description: "Myself/Daughter/Son/Brother/Sister/Relative/Friend"
+          description: "Myself, Daughter, Son, Brother, Sister, Relative, or Friend"
         bride_groom_name:
           type: string
           example: "Ameer"
