@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
   title: Muslim Matrimonial User Service API
-  version: 1.0.0
-  description: User profile management, subscription, search, and communication features.
+  version: 1.1.0
+  description: User profile management, search, partner preference, chat, and subscription features
 servers:
   - url: https://api.yourplatform.com/v1
     description: Production server
@@ -11,17 +11,17 @@ tags:
   - name: Profile Management
     description: User profile operations
   - name: Photos
-    description: Photo management
+    description: Profile photo management
   - name: Partner Preferences
     description: Partner preference settings
-  - name: Subscriptions
-    description: Subscription management
   - name: Search
     description: Profile search operations
+  - name: Subscriptions
+    description: Subscription management and payment operations
   - name: Interests
-    description: Interest management
+    description: Interest request management
   - name: Chat
-    description: Chat operations
+    description: Real-time chat operations
 
 paths:
   /user/profile:
@@ -39,9 +39,10 @@ paths:
                 $ref: '#/components/schemas/UserProfile'
         404:
           description: Profile not found
+
     post:
       tags: [Profile Management]
-      summary: Submit user details
+      summary: Create user profile
       security:
         - bearerAuth: []
       requestBody:
@@ -51,14 +52,17 @@ paths:
             schema:
               $ref: '#/components/schemas/UserProfile'
       responses:
-        200:
-          description: Profile updated
+        201:
+          description: Profile created
           content:
             application/json:
-              example: { "message": "Profile saved successfully" }
+              example: { "message": "Profile created successfully" }
+        400:
+          description: Invalid input
         401:
           description: Unauthorized
-    put:
+
+    patch:
       tags: [Profile Management]
       summary: Update profile details
       security:
@@ -68,13 +72,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserProfile'
+              $ref: '#/components/schemas/UserProfileUpdate'
       responses:
         200:
           description: Profile updated
           content:
             application/json:
               example: { "message": "Profile updated successfully" }
+
     delete:
       tags: [Profile Management]
       summary: Deactivate account
@@ -88,20 +93,9 @@ paths:
               example: { "message": "Account deactivated successfully" }
 
   /user/photo/profile:
-    get:
-      tags: [Photos]
-      summary: Get profile photo URL
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: Profile photo URL
-          content:
-            application/json:
-              example: { "profile_photo_url": "https://s3.amazonaws.com/..." }
     post:
       tags: [Photos]
-      summary: Upload profile photo
+      summary: Upload primary profile photo
       security:
         - bearerAuth: []
       requestBody:
@@ -114,22 +108,16 @@ paths:
                   type: string
                   format: binary
       responses:
-        200:
-          description: Photo uploaded
+        201:
+          description: Primary photo uploaded
           content:
             application/json:
-              example: { "profile_photo_url": "https://s3.amazonaws.com/..." }
-    delete:
-      tags: [Photos]
-      summary: Remove profile photo
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: Photo removed
-          content:
-            application/json:
-              example: { "message": "Profile photo removed" }
+              schema:
+                $ref: '#/components/schemas/PhotoResponse'
+        400:
+          description: Maximum 3 photos exceeded
+        413:
+          description: File too large (max 5MB)
 
   /user/photos:
     get:
@@ -142,10 +130,12 @@ paths:
           description: List of photos
           content:
             application/json:
-              example: { "photos": ["url1", "url2"] }
+              schema:
+                $ref: '#/components/schemas/PhotoListResponse'
+
     post:
       tags: [Photos]
-      summary: Upload multiple photos (max 3)
+      summary: Upload additional photos
       security:
         - bearerAuth: []
       requestBody:
@@ -160,13 +150,28 @@ paths:
                     type: string
                     format: binary
                   maxItems: 3
-                  description: "Up to 3 photos allowed"
+                  description: "Up to 3 photos allowed (including primary)"
       responses:
-        200:
+        201:
           description: Photos uploaded
           content:
             application/json:
-              example: { "photo_urls": ["url1", "url2"] }
+              schema:
+                $ref: '#/components/schemas/PhotoListResponse'
+        400:
+          description: Maximum 3 photos exceeded
+
+    delete:
+      tags: [Photos]
+      summary: Delete all photos
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: All photos removed
+          content:
+            application/json:
+              example: { "message": "All photos deleted successfully" }
 
   /user/photos/{photo_id}:
     delete:
@@ -180,6 +185,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         200:
           description: Photo deleted
@@ -200,9 +206,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PartnerPreferences'
+
     post:
       tags: [Partner Preferences]
-      summary: Set partner preferences
+      summary: Create partner preferences
       security:
         - bearerAuth: []
       requestBody:
@@ -212,16 +219,15 @@ paths:
             schema:
               $ref: '#/components/schemas/PartnerPreferences'
       responses:
-        200:
-          description: Preferences saved
+        201:
+          description: Preferences created
           content:
             application/json:
-              example: { "message": "Preferences updated" }
+              example: { "message": "Preferences created successfully" }
 
-  /user/subscribe:
-    post:
-      tags: [Subscriptions]
-      summary: Initiate Razorpay subscription
+    patch:
+      tags: [Partner Preferences]
+      summary: Update partner preferences
       security:
         - bearerAuth: []
       requestBody:
@@ -229,30 +235,58 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                plan:
-                  type: string
-                  example: "yearly"
+              $ref: '#/components/schemas/PartnerPreferencesUpdate'
+      responses:
+        200:
+          description: Preferences updated
+          content:
+            application/json:
+              example: { "message": "Preferences updated successfully" }
+
+  /user/search:
+    get:
+      tags: [Search]
+      summary: Search profiles
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/gender'
+        - $ref: '#/components/parameters/min_age'
+        - $ref: '#/components/parameters/max_age'
+        - $ref: '#/components/parameters/min_height'
+        - $ref: '#/components/parameters/max_height'
+        - $ref: '#/components/parameters/marital_status'
+        - $ref: '#/components/parameters/districts'
+        - $ref: '#/components/parameters/education_levels'
+        - $ref: '#/components/parameters/professions'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        200:
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResults'
+                
+  /user/subscribe:
+    post:
+      tags: [Subscriptions]
+      summary: Create Razorpay subscription order
+      security:
+        - bearerAuth: []
       responses:
         200:
           description: Razorpay order created
           content:
             application/json:
-              example: { "order_id": "razorpay_order_123" }
-
-  /user/subscription:
-    get:
-      tags: [Subscriptions]
-      summary: Get current subscription status
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: Subscription details
+              schema:
+                $ref: '#/components/schemas/RazorpayOrder'
+        402:
+          description: Payment required
           content:
             application/json:
-              example: { "plan": "yearly", "expires_at": "2025-01-01" }
+              example: { "error": "Subscription plan required" }
 
   /user/subscription/webhook:
     post:
@@ -262,94 +296,34 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                payment_id:
-                  type: string
-                  example: "pay_123"
-                status:
-                  type: string
-                  example: "success"
+              $ref: '#/components/schemas/RazorpayWebhook'
       responses:
         200:
           description: Webhook processed
+        400:
+          description: Invalid webhook payload
 
-  /user/search:
+  /user/subscription:
     get:
-      tags: [Search]
-      summary: Search profiles based on criteria
+      tags: [Subscriptions]
+      summary: Get subscription status
       security:
         - bearerAuth: []
-      parameters:
-        - name: min_age
-          in: query
-          schema:
-            type: integer
-            example: 25
-        - name: max_age
-          in: query
-          schema:
-            type: integer
-            example: 30
-        - name: min_height
-          in: query
-          schema:
-            type: number
-            example: 5.5
-        - name: max_height
-          in: query
-          schema:
-            type: number
-            example: 6.0
-        - name: marital_status
-          in: query
-          schema:
-            type: array
-            items:
-              type: string
-            example: ["Never married", "Divorced"]
-        - name: education
-          in: query
-          schema:
-            type: array
-            items:
-              type: string
-            example: ["Masters", "Bachelors"]
-        - name: profession
-          in: query
-          schema:
-            type: array
-            items:
-              type: string
-            example: ["Software Engineer", "Doctor"]
-        - name: home_district
-          in: query
-          schema:
-            type: array
-            items:
-              type: string
-            example: ["Kozhikode", "Trivandrum"]
-        - name: page
-          in: query
-          schema:
-            type: integer
-            example: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            example: 20
       responses:
         200:
-          description: Search results
+          description: Subscription details
           content:
             application/json:
-              example: { "profiles": [] }
-
+              schema:
+                $ref: '#/components/schemas/SubscriptionStatus'
+                
+  # ==========================================
+  # Interest Requests
+  # ==========================================
   /user/interest:
     post:
       tags: [Interests]
-      summary: Send interest to a user
+      summary: Send interest request to a user
       security:
         - bearerAuth: []
       requestBody:
@@ -361,13 +335,18 @@ paths:
               properties:
                 to_user_id:
                   type: string
-                  example: "user_456"
+                  format: uuid
+                  example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
-        200:
-          description: Interest sent
+        201:
+          description: Interest request sent
           content:
             application/json:
-              example: { "message": "Interest request sent" }
+              example: { "message": "Interest request sent", "request_id": "..." }
+        403:
+          description: Premium subscription required
+        404:
+          description: Target user not found
 
   /user/interests/received:
     get:
@@ -375,12 +354,24 @@ paths:
       summary: Get received interest requests
       security:
         - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, accepted, rejected]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
       responses:
         200:
           description: List of received interests
           content:
             application/json:
-              example: { "requests": [] }
+              schema:
+                $ref: '#/components/schemas/InterestList'
 
   /user/interests/sent:
     get:
@@ -388,12 +379,19 @@ paths:
       summary: Get sent interest requests
       security:
         - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, accepted, rejected]
       responses:
         200:
           description: List of sent interests
           content:
             application/json:
-              example: { "sent_requests": [] }
+              schema:
+                $ref: '#/components/schemas/InterestList'
 
   /user/interest/{request_id}/accept:
     post:
@@ -407,12 +405,33 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         200:
           description: Request accepted
           content:
             application/json:
-              example: { "message": "Interest accepted" }
+              example: { "message": "Interest request accepted" }
+
+  /user/interest/{request_id}/reject:
+    post:
+      tags: [Interests]
+      summary: Reject an interest request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Request rejected
+          content:
+            application/json:
+              example: { "message": "Interest request rejected" }
 
   /user/interest/{request_id}:
     delete:
@@ -426,6 +445,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         200:
           description: Interest withdrawn
@@ -433,37 +453,13 @@ paths:
             application/json:
               example: { "message": "Interest request withdrawn" }
 
+  # ==========================================
+  # Chat Endpoints
+  # ==========================================
   /user/chat/{user_id}/messages:
-    get:
-      tags: [Chat]
-      summary: Get chat history with a user
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-            example: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            example: 20
-      responses:
-        200:
-          description: Chat messages
-          content:
-            application/json:
-              example: { "messages": [] }
     post:
       tags: [Chat]
-      summary: Send a message
+      summary: Send message to user
       security:
         - bearerAuth: []
       parameters:
@@ -472,6 +468,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -483,24 +480,55 @@ paths:
                   type: string
                   example: "Assalamualaikum, would you like to connect?"
       responses:
-        200:
+        201:
           description: Message sent
           content:
             application/json:
-              example: { "message_id": "msg_123" }
+              example: { "message_id": "..." }
+
+    get:
+      tags: [Chat]
+      summary: Get chat history with user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: before
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        200:
+          description: Chat messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatHistory'
 
   /user/chats:
     get:
       tags: [Chat]
-      summary: List active chat conversations
+      summary: List recent conversations
       security:
         - bearerAuth: []
       responses:
         200:
-          description: Chat list
+          description: Active chats
           content:
             application/json:
-              example: { "conversations": [] }
+              schema:
+                $ref: '#/components/schemas/ChatList'
 
   /user/chat/messages/{message_id}:
     delete:
@@ -514,6 +542,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         200:
           description: Message deleted
@@ -526,97 +555,456 @@ components:
     UserProfile:
       type: object
       properties:
-        date_of_birth:
+        gender:
+          type: string
+          enum: [bride, groom]
+        created_for:
+          type: string
+          enum: [self, parent, sibling, relative, friend]
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        dob:
           type: string
           format: date
-          example: "1995-05-15"
         community:
           type: string
-          enum: ["Sunni", "Shia", "Thabligh", "Mujahid"]
-          example: "Sunni"
-        nationality:
-          type: string
-          example: "Indian"
+          enum: [hanafi, shafi, shia, sunni, thableegh, other]
         height:
           type: number
-          example: 5.8
+          minimum: 100
+          maximum: 250
         weight:
           type: number
-          example: 70
+          minimum: 30
+          maximum: 200
         marital_status:
           type: string
-          enum: ["Never married", "Divorced", "Nikah divorce", "Awaiting divorce", "Widower"]
-          example: "Never married"
+          enum: [never_married, divorced, widowed, awaiting_divorce]
         physically_challenged:
           type: boolean
-          example: false
-        highest_education:
-          type: string
-          enum: ["Doctorate", "Masters", "Bachelors", "Diploma", "TTC", "ITI", "Islamic Education", "High School", "Higher Secondary", "Less than high school"]
-          example: "Masters"
-        course:
-          type: string
-          example: "MSc Computer Science"
-        profession:
-          type: string
-          example: "Software Engineer"
-        profession_type:
-          type: string
-          enum: ["Student", "Full time", "Part time", "Government", "Private", "Homemaker", "Self Employed", "Retired", "Not employed"]
-          example: "Full time"
         home_district:
           type: string
-          example: "Kozhikode"
-        current_location:
+          enum: [thiruvananthapuram, kollam, pathanamthitta, alappuzha, kottayam, idukki, ernakulam, thrissur, palakkad, malappuram, kozhikode, wayanad, kannur, kasaragod]
+        education_level:
           type: string
-          example: "India"
-        religiousness:
+          enum: [high_school, bachelors, masters, doctorate]
+        course:
           type: string
-          enum: ["Very religious", "Moderately religious", "Occasionally religious", "Agnostic", "Secular", "Atheist", "Not religious", "Prefer not to say"]
-          example: "Very religious"
-        financial_status:
+          enum: [computer_science, business_administration, mechanical_engineering, electrical_engineering, civil_engineering, biology, mathematics]
+        profession:
           type: string
-          enum: ["Lower middle class", "Middle class", "Upper middle class", "Wealthy/affluent", "Prefer not to say"]
-          example: "Middle class"
+          enum: [student, engineer, doctor, business, government]
+        profession_type:
+          type: string
+          enum: [full_time, part_time, self_employed, homemaker]
+      required:
+        - gender
+        - created_for
+        - full_name
+        - dob
+        - community
+        - marital_status
+        - physically_challenged
+        - home_district
+        - education_level
+        - course
+        - profession
+        - profession_type
+
+    UserProfileUpdate:
+      type: object
+      properties:
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        height:
+          type: number
+          minimum: 100
+          maximum: 250
+        weight:
+          type: number
+          minimum: 30
+          maximum: 200
+        physically_challenged:
+          type: boolean
+        profession_type:
+          type: string
+          enum: [full_time, part_time, self_employed, homemaker]
 
     PartnerPreferences:
       type: object
       properties:
         min_age:
           type: integer
-          example: 25
+          minimum: 18
+          maximum: 100
         max_age:
           type: integer
-          example: 30
+          minimum: 18
+          maximum: 100
         min_height:
           type: number
-          example: 5.5
+          minimum: 100
+          maximum: 250
         max_height:
           type: number
-          example: 6.0
-        marital_status:
+          minimum: 100
+          maximum: 250
+        marital_statuses:
           type: array
           items:
             type: string
-          example: ["Never married", "Divorced"]
-        education:
+            enum: [never_married, divorced, widowed, awaiting_divorce]
+          minItems: 1
+        districts:
           type: array
           items:
             type: string
-          example: ["Masters", "Bachelors"]
-        profession:
+            enum: [thiruvananthapuram, kollam, pathanamthitta, alappuzha, kottayam, idukki, ernakulam, thrissur, palakkad, malappuram, kozhikode, wayanad, kannur, kasaragod]
+          minItems: 1
+        education_levels:
           type: array
           items:
             type: string
-          example: ["Software Engineer", "Doctor"]
-        home_district:
+            enum: [high_school, bachelors, masters, doctorate]
+          minItems: 1
+        professions:
           type: array
           items:
             type: string
-          example: ["Kozhikode", "Trivandrum"]
+            enum: [student, engineer, doctor, business, government]
+          minItems: 1
+      required:
+        - min_age
+        - max_age
+        - min_height
+        - max_height
+
+    PartnerPreferencesUpdate:
+      type: object
+      properties:
+        min_age:
+          type: integer
+          minimum: 18
+          maximum: 100
+        max_age:
+          type: integer
+          minimum: 18
+          maximum: 100
+        min_height:
+          type: number
+          minimum: 100
+          maximum: 250
+        max_height:
+          type: number
+          minimum: 100
+          maximum: 250
+        marital_statuses:
+          type: array
+          items:
+            type: string
+            enum: [never_married, divorced, widowed, awaiting_divorce]
+        districts:
+          type: array
+          items:
+            type: string
+            enum: [thiruvananthapuram, kollam, pathanamthitta, alappuzha, kottayam, idukki, ernakulam, thrissur, palakkad, malappuram, kozhikode, wayanad, kannur, kasaragod]
+        education_levels:
+          type: array
+          items:
+            type: string
+            enum: [high_school, bachelors, masters, doctorate]
+        professions:
+          type: array
+          items:
+            type: string
+            enum: [student, engineer, doctor, business, government]
+
+    PhotoResponse:
+      type: object
+      properties:
+        photo_id:
+          type: string
+          format: uuid
+        s3_url:
+          type: string
+        is_primary:
+          type: boolean
+        uploaded_at:
+          type: string
+          format: date-time
+
+    PhotoListResponse:
+      type: object
+      properties:
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhotoResponse'
+
+    SearchResults:
+      type: object
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserProfile'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    RazorpayOrder:
+      type: object
+      properties:
+        order_id:
+          type: string
+          example: "order_123"
+        amount:
+          type: integer
+          example: 49900
+        currency:
+          type: string
+          example: "INR"
+        receipt:
+          type: string
+          example: "receipt_123"
+        status:
+          type: string
+          example: "created"
+      required:
+        - order_id
+        - amount
+        - currency
+
+    RazorpayWebhook:
+      type: object
+      properties:
+        event:
+          type: string
+          example: "payment.captured"
+        payload:
+          type: object
+          properties:
+            payment:
+              type: object
+              properties:
+                entity:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      example: "pay_123"
+                    order_id:
+                      type: string
+                      example: "order_123"
+                    status:
+                      type: string
+                      example: "captured"
+
+    SubscriptionStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [trial, active, expired]
+          example: "active"
+        plan_type:
+          type: string
+          example: "premium"
+        start_date:
+          type: string
+          format: date
+          example: "2024-03-01"
+        end_date:
+          type: string
+          format: date
+          example: "2025-03-01"
+        payment_status:
+          type: string
+          enum: [created, captured, failed]
+          example: "captured"
+          
+    InterestRequest:
+      type: object
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        from_user:
+          $ref: '#/components/schemas/UserBasic'
+        to_user:
+          $ref: '#/components/schemas/UserBasic'
+        status:
+          type: string
+          enum: [pending, accepted, rejected, withdrawn]
+        created_at:
+          type: string
+          format: date-time
+
+    InterestList:
+      type: object
+      properties:
+        requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterestRequest'
+        total:
+          type: integer
+
+    ChatMessage:
+      type: object
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        sender_id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        read:
+          type: boolean
+
+    ChatHistory:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        has_more:
+          type: boolean
+
+    ChatList:
+      type: object
+      properties:
+        conversations:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: string
+                format: uuid
+              last_message:
+                $ref: '#/components/schemas/ChatMessage'
+              unread_count:
+                type: integer
+
+    UserBasic:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        profile_photo:
+          type: string
+    
+  parameters:
+    gender:
+      name: gender
+      in: query
+      schema:
+        type: string
+        enum: [bride, groom]
+    min_age:
+      name: min_age
+      in: query
+      schema:
+        type: integer
+        minimum: 18
+        maximum: 100
+    max_age:
+      name: max_age
+      in: query
+      schema:
+        type: integer
+        minimum: 18
+        maximum: 100
+    min_height:
+      name: min_height
+      in: query
+      schema:
+        type: number
+        minimum: 100
+        maximum: 250
+    max_height:
+      name: max_height
+      in: query
+      schema:
+        type: number
+        minimum: 100
+        maximum: 250
+    marital_status:
+      name: marital_status
+      in: query
+      schema:
+        type: array
+        items:
+          type: string
+          enum: [never_married, divorced, widowed, awaiting_divorce]
+    districts:
+      name: districts
+      in: query
+      schema:
+        type: array
+        items:
+          type: string
+          enum: [thiruvananthapuram, kollam, pathanamthitta, alappuzha, kottayam, idukki, ernakulam, thrissur, palakkad, malappuram, kozhikode, wayanad, kannur, kasaragod]
+    education_levels:
+      name: education_levels
+      in: query
+      schema:
+        type: array
+        items:
+          type: string
+          enum: [high_school, bachelors, masters, doctorate]
+    professions:
+      name: professions
+      in: query
+      schema:
+        type: array
+        items:
+          type: string
+          enum: [student, engineer, doctor, business, government]
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+        
+    subscription_status:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [active, expired, trial]
 
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      
+      
